@@ -1,13 +1,19 @@
-
-import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Users, Heart, Phone, Mail, MapPin, Calendar, 
-  User, ArrowLeft, CheckCircle 
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Users,
+  Heart,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  User,
+  ArrowLeft,
+  CheckCircle,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface ProfileData {
   user_full_name: string;
@@ -30,11 +36,11 @@ const Profile = () => {
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
 
   useEffect(() => {
-    const savedData = localStorage.getItem('membershipData');
+    const savedData = localStorage.getItem("membershipData");
     if (savedData) {
       setProfileData(JSON.parse(savedData));
     } else {
-      navigate('/');
+      navigate("/");
     }
   }, [navigate]);
 
@@ -48,12 +54,9 @@ const Profile = () => {
     );
   }
 
- 
-
   return (
     <div className="min-h-screen relative  py-8">
-
-  <div className="absolute inset-0 -z-10 overflow-hidden">
+      <div className="absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-orange-50/70 to-red-50/70">
           <div
             className="absolute inset-0 opacity-40"
@@ -115,30 +118,24 @@ const Profile = () => {
   }
 `}</style>
 
-
-
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="mb-6">
             <img
-              src="https://samyuktgujaratisamaj.com/assets/logoss.png"
+              src="/logo.png"
               alt="Samyukt Gujarati Samaj"
               className="h-20 mx-auto mb-4"
               onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
+                (e.target as HTMLImageElement).style.display = "none";
               }}
             />
           </div>
           <div className="flex items-center justify-center gap-2 mb-2">
-            
             <h1 className="text-3xl font-bold text-gray-800">
               Membership Application Submitted
             </h1>
           </div>
-       
-          
-          
         </div>
 
         {/* Success Message */}
@@ -149,17 +146,17 @@ const Profile = () => {
               Application Submitted Successfully!
             </h2>
             <p className="text-green-700">
-              Your membership application has been received. You will be contacted soon for further processing.
+              Your membership application has been received. You will be
+              contacted soon for further processing.
             </p>
             <p className="text-sm text-green-600 mt-2">
-              For any queries, call us at <a className="font-semibold underline" href="tel:8867171060">8867171060</a>
+              For any queries, call us at{" "}
+              <a className="font-semibold underline" href="tel:8867171060">
+                8867171060
+              </a>
             </p>
           </CardContent>
         </Card>
-
-       
-
-      
       </div>
     </div>
   );
