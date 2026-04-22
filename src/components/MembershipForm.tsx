@@ -19,11 +19,15 @@ import {
   MapPin,
   Calendar,
   Camera,
+  User,
+  PhoneCall,
+  Building,
 } from "lucide-react";
 import PhotoUpload from "./PhotoUpload";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import useNumericInput from "@/hooks/useNumericInput";
+
 interface FormData {
   user_full_name: string;
   user_email: string;
@@ -39,6 +43,125 @@ interface FormData {
   user_image: string;
   spouse_image: string;
 }
+
+const DateDropdowns = ({
+  id,
+  label,
+  value,
+  onChange,
+  error,
+  required,
+  icon: Icon,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+  required?: boolean;
+  icon: any;
+}) => {
+  const [year, month, day] = value ? value.split("-") : ["", "", ""];
+
+  const handleUpdate = (part: "year" | "month" | "day", partValue: string) => {
+    let y = year;
+    let m = month;
+    let d = day;
+
+    if (part === "year") y = partValue;
+    if (part === "month") m = partValue;
+    if (part === "day") d = partValue;
+
+    // Use placeholder values to avoid broken strings if only one part is selected
+    // but the final string should ideally be YYYY-MM-DD
+    onChange(`${y || ""}-${m || ""}-${d || ""}`);
+  };
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 100 }, (_, i) =>
+    (currentYear - i).toString(),
+  );
+  const months = [
+    { value: "01", label: "January" },
+    { value: "02", label: "February" },
+    { value: "03", label: "March" },
+    { value: "04", label: "April" },
+    { value: "05", label: "May" },
+    { value: "06", label: "June" },
+    { value: "07", label: "July" },
+    { value: "08", label: "August" },
+    { value: "09", label: "September" },
+    { value: "10", label: "October" },
+    { value: "11", label: "November" },
+    { value: "12", label: "December" },
+  ];
+  const days = Array.from({ length: 31 }, (_, i) =>
+    (i + 1).toString().padStart(2, "0"),
+  );
+
+  return (
+    <div className="space-y-1">
+      <Label
+        htmlFor={id}
+        className="text-sm font-semibold text-gray-700 flex items-center"
+      >
+        <Icon className="w-4 h-4 inline mr-1" />
+        {label} {required && <span className="text-red-600 ml-1"> *</span>}
+      </Label>
+      {/* Date Dropdowns Row */}
+      <div className="grid grid-cols-3 gap-2 mt-1">
+        <Select
+          value={day || undefined}
+          onValueChange={(v) => handleUpdate("day", v)}
+        >
+          <SelectTrigger className={error ? "border-red-500" : ""}>
+            <SelectValue placeholder="Day" />
+          </SelectTrigger>
+          <SelectContent>
+            {days.map((d) => (
+              <SelectItem key={d} value={d}>
+                {d}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={month || undefined}
+          onValueChange={(v) => handleUpdate("month", v)}
+        >
+          <SelectTrigger className={error ? "border-red-500" : ""}>
+            <SelectValue placeholder="Month" />
+          </SelectTrigger>
+          <SelectContent>
+            {months.map((m) => (
+              <SelectItem key={m.value} value={m.value}>
+                {m.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={year || undefined}
+          onValueChange={(v) => handleUpdate("year", v)}
+        >
+          <SelectTrigger className={error ? "border-red-500" : ""}>
+            <SelectValue placeholder="Year" />
+          </SelectTrigger>
+          <SelectContent>
+            {years.map((y) => (
+              <SelectItem key={y} value={y}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+    </div>
+  );
+};
 
 const MembershipForm = () => {
   const { toast } = useToast();
@@ -56,7 +179,7 @@ const MembershipForm = () => {
     user_spouse_name: "",
     user_spouse_mobile: "",
     user_spouse_dob: "",
-    user_type: "",
+    user_type: "Life Membership",
     user_cat: "",
     user_image: "",
     spouse_image: "",
@@ -108,12 +231,25 @@ const MembershipForm = () => {
       newErrors.user_mobile = "Please enter a valid 10-digit mobile number";
     }
 
-    if (!formData.user_dob) {
-      newErrors.user_dob = "Date of birth is required";
+    if (
+      !formData.user_dob ||
+      formData.user_dob.split("-").some((part) => !part)
+    ) {
+      newErrors.user_dob = "Complete date of birth is required";
     }
 
     if (!formData.user_add.trim()) {
       newErrors.user_add = "Address is required";
+    }
+
+    if (formData.user_spouse_dob) {
+      const spouseDobParts = formData.user_spouse_dob.split("-");
+      if (
+        spouseDobParts.some((part) => part) &&
+        spouseDobParts.some((part) => !part)
+      ) {
+        newErrors.user_spouse_dob = "Please complete the spouse date of birth";
+      }
     }
 
     if (!formData.user_type) {
@@ -158,7 +294,7 @@ const MembershipForm = () => {
             Accept: "application/json",
             "Content-Type": "multipart/form-data",
           },
-        }
+        },
       );
       if (response.data.code == 201) {
         localStorage.setItem("membershipData", JSON.stringify(formData));
@@ -169,12 +305,14 @@ const MembershipForm = () => {
             response.data.message ||
             "Your membership application has been submitted successfully.",
         });
-     navigate('/profile')
-      } 
+        navigate("/profile");
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: error.response.data.message || "Failed to submit form. Please try again.",
+        description:
+          error.response.data.message ||
+          "Failed to submit form. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -186,8 +324,53 @@ const MembershipForm = () => {
       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
       : "";
   };
+
+  const samajOptions = [
+    "Dasha Shreemali Jain Murti Pujak Samaj",
+    "Kankrej Pragati Samaj",
+    "Shree Bangalore Brahmkshatriya Samaj (Regd)",
+    "Shri Ahir Samaj Bangalore",
+    "Shri Bangalore Bhatia Samaj",
+    "Shri Bangalore Ghoghari Visa Shreemali Jain Sangh",
+    "Shri Bangalore Gujarati Brahm Samaj",
+    "Shri Bangalore Kadhayata Samaj",
+    "Shri Bangalore Kapol Samaj",
+    "Shri Bangalore Lohana Samaj",
+    "Shri Bangalore Patidar Samaj (Peenya)",
+    "Shri Bangalore Sagar Samaj",
+    "Shri Dasa Shrimali Jain Murthi Poojak Samaj",
+    "Shri Dasa Shrimali Vaishno Vanik Gyanti",
+    "Shri Dasa Sorathia Vanik Gyanti",
+    "Shri Devanahalli Patidar Samaj",
+    "Shri Gujrati Vardhaman Sthanakvashi Jain Sangha",
+    "Shri Gurjar Kashtriya Kadiya Samaj",
+    "Shri Halari Visa Oswal Samaj",
+    "Shri Kadava Patidar Samaj (KR Puram)",
+    "Shri Kadva Patidar Samaj (Doddabellapur)",
+    "Shri Katch Kaduva Patidar Sanatan Samaj (Yelhanka)",
+    "Shri Katchi Gurjar Jain Pariwar",
+    "Shri Kutch Vaghad Leva Patidar Samaj",
+    "Shri Kutchi Dasa Oswal Jain Gnati Mahajan Bangalore",
+    "Shri Kutchi Visa Oswal Jain Samaj",
+    "Shri Lakshminarayan Patidar Samaj (Nalmangala)",
+    "Shri Lalbhag Patidar Samaj",
+    "Shri Matchhukantha Jain Mandal",
+    "Shri Modh Bandhu Samaj",
+    "Shri Patidar Parivar Samaj",
+    "Shri Samast Leva Patel Samaj",
+    "Shri Satwara Samaj Bangalore",
+    "Shri Saurashtra Uma Parivar Bangalore",
+    "Shri Shrimali Soni Samaj",
+    "Shri Umiya Patidar Sanatan Samaj",
+    "Shri Uttar Gujrati Patidar Samaj",
+    "Shri Vansh Suthar Samaj Bangalore",
+    "Shri Vishwakarma Gujarati Samaj",
+    "Sri Umiya Patidar Samaj (Indiranagar)",
+    "Others",
+  ];
+
   return (
-    <div className=" relative py-8">
+    <div className="min-h-screen relative pb-10 pt-8 md:pt-0 flex items-center">
       <div className="absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-orange-50/70 to-red-50/70">
           <div
@@ -250,173 +433,160 @@ const MembershipForm = () => {
   }
 `}</style>
 
-      <div className="container mx-auto px-4   max-w-7xl">
-        <div className="text-center mb-8">
-          <div className="mb-6">
+      <div className="container mx-auto px-4 max-w-7xl">
+        <div className="flex flex-col md:flex-row text-center justify-evenly gap-5 md:gap-10 mb-5 md:mb-8 p-2">
+          <div>
             <img
-              src="https://samyuktgujaratisamaj.com/assets/logoss.png"
+              src="/logo.png"
               alt="Samyukt Gujarati Samaj"
-              className="h-20 mx-auto mb-4"
+              className="h-18 mx-auto"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = "none";
               }}
             />
           </div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
-            Samyukt Gujarati Samaj
-          </h1>
-          <p className="text-lg text-gray-600 mb-2">
-            Membership Registration Form
-          </p>
-          <p className="text-sm text-gray-500">
-            Call us at{" "}
-            <a className="font-semibold text-orange-600 underline" href="tel:8867171060">8867171060</a> if
-            you have any questions.
-          </p>
+          <div>
+            <p className="text-xl font-semibold text-gray-800 mb-2">
+              Membership Form
+            </p>
+            <p className="text-sm text-gray-600">
+              Call us at
+              <a
+                className="font-semibold text-orange-600 underline"
+                href="tel:8867171060"
+              >
+                8867171060
+              </a>
+              if you have any questions.
+            </p>
+          </div>
         </div>
 
         {/*  Form */}
-        <div className="bg-white/50 rounded-2xl p-8 shadow-2xl backdrop-blur-sm">
+        <div className="bg-white/50 rounded-2xl p-6 pt-8 shadow-2xl backdrop-blur-sm">
           <form onSubmit={handleSubmit} noValidate className="space-y-6">
-            {/* Personal Information Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Users className="w-5 h-5 text-orange-500" />
-                <h2 className="text-xl font-semibold text-gray-800">
-                  Personal Information
-                </h2>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label
-                    htmlFor="user_full_name"
-                    className="text-sm font-semibold text-gray-700"
-                  >
-                    Full Name *
-                  </Label>
-                  <Input
-                    id="user_full_name"
-                    value={formData.user_full_name}
-                    onChange={(e) =>
-                      handleInputChange("user_full_name", e.target.value)
-                    }
-                    className={`mt-1 ${hasError("user_full_name")}`}
-                  />
-                  {errors.user_full_name && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {errors.user_full_name}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor="user_email"
-                    className="text-sm font-semibold text-gray-700"
-                  >
-                    <Mail className="w-4 h-4 inline mr-1" />
-                    Email Address *
-                  </Label>
-                  <Input
-                    id="user_email"
-                    type="email"
-                    value={formData.user_email}
-                    onChange={(e) =>
-                      handleInputChange("user_email", e.target.value)
-                    }
-                    className={`mt-1 ${hasError("user_email")}`}
-                  />
-                  {errors.user_email && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {errors.user_email}
-                    </p>
-                  )}
-                </div>
-
-                
-              </div >
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                  <Label
-                    htmlFor="user_mobile"
-                    className="text-sm font-semibold text-gray-700"
-                  >
-                    <Phone className="w-4 h-4 inline mr-1" />
-                    Mobile Number *
-                  </Label>
-                  <Input
-                    id="user_mobile"
-                    value={formData.user_mobile}
-                    onChange={(e) =>
-                      handleInputChange("user_mobile", e.target.value)
-                    }
-                    onKeyDown={keydown}
-                    minLength={1}
-                    maxLength={10}
-                    className={`mt-1 ${hasError("user_mobile")}`}
-                  />
-                  {errors.user_mobile && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {errors.user_mobile}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor="user_whatsapp"
-                    className="text-sm font-semibold text-gray-700"
-                  >
-                    WhatsApp Number
-                  </Label>
-                  <Input
-                    id="user_whatsapp"
-                    value={formData.user_whatsapp}
-                    onChange={(e) =>
-                      handleInputChange("user_whatsapp", e.target.value)
-                    }
-                    onKeyDown={keydown}
-                    minLength={1}
-                    maxLength={10}
-                    className="mt-1"
-                  />
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor="user_dob"
-                    className="text-sm font-semibold text-gray-700"
-                  >
-                    <Calendar className="w-4 h-4 inline mr-1" />
-                    Date of Birth *
-                  </Label>
-                  <Input
-                    id="user_dob"
-                    type="date"
-                    value={formData.user_dob}
-                    onChange={(e) =>
-                      handleInputChange("user_dob", e.target.value)
-                    }
-                    className={`mt-1 ${hasError("user_dob")}`}
-                  />
-                  {errors.user_dob && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {errors.user_dob}
-                    </p>
-                  )}
-                </div>
-                  </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <Label
+                  htmlFor="user_full_name"
+                  className="text-sm font-semibold text-gray-700 flex items-center"
+                >
+                  <User className="w-4 h-4 inline mr-1" />
+                  Full Name <span className="text-red-600 ml-1"> *</span>
+                </Label>
+                <Input
+                  id="user_full_name"
+                  placeholder="Enter your full name"
+                  value={formData.user_full_name}
+                  onChange={(e) =>
+                    handleInputChange("user_full_name", e.target.value)
+                  }
+                  className={`mt-1 ${hasError("user_full_name")}`}
+                />
+                {errors.user_full_name && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.user_full_name}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label
+                  htmlFor="user_email"
+                  className="text-sm font-semibold text-gray-700 flex items-center"
+                >
+                  <Mail className="w-4 h-4 inline mr-1" />
+                  Email Id <span className="text-red-600 ml-1"> *</span>
+                </Label>
+                <Input
+                  id="user_email"
+                  type="email"
+                  placeholder="Enter email id"
+                  value={formData.user_email}
+                  onChange={(e) =>
+                    handleInputChange("user_email", e.target.value)
+                  }
+                  className={`mt-1 ${hasError("user_email")}`}
+                />
+                {errors.user_email && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.user_email}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label
+                  htmlFor="user_mobile"
+                  className="text-sm font-semibold text-gray-700 flex items-center"
+                >
+                  <Phone className="w-4 h-4 inline mr-1" />
+                  Mobile No <span className="text-red-600 ml-1"> *</span>
+                </Label>
+                <Input
+                  id="user_mobile"
+                  placeholder="Enter mobile no"
+                  value={formData.user_mobile}
+                  onChange={(e) =>
+                    handleInputChange("user_mobile", e.target.value)
+                  }
+                  onKeyDown={keydown}
+                  minLength={1}
+                  maxLength={10}
+                  className={`mt-1 ${hasError("user_mobile")}`}
+                />
+                {errors.user_mobile && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.user_mobile}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label
+                  htmlFor="user_whatsapp"
+                  className="text-sm font-semibold text-gray-700 flex items-center"
+                >
+                  <Phone className="w-4 h-4 inline mr-1" />
+                  WhatsApp No
+                </Label>
+                <Input
+                  id="user_whatsapp"
+                  placeholder="Enter whatsapp no"
+                  value={formData.user_whatsapp}
+                  onChange={(e) =>
+                    handleInputChange("user_whatsapp", e.target.value)
+                  }
+                  onKeyDown={keydown}
+                  minLength={1}
+                  maxLength={10}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="col-span-1">
+                <DateDropdowns
+                  id="user_dob"
+                  label="Date of Birth"
+                  value={formData.user_dob}
+                  onChange={(val) => handleInputChange("user_dob", val)}
+                  error={errors.user_dob}
+                  required
+                  icon={Calendar}
+                />
+              </div>
+              <div className="md:col-span-3">
+                <Label
                   htmlFor="user_add"
-                  className="text-sm font-semibold text-gray-700"
+                  className="text-sm font-semibold text-gray-700 flex items-center"
                 >
                   <MapPin className="w-4 h-4 inline mr-1" />
-                  Address *
+                  Address <span className="text-red-600 ml-1"> *</span>
                 </Label>
                 <Textarea
                   id="user_add"
+                  placeholder="Enter your complete address"
                   value={formData.user_add}
                   onChange={(e) =>
                     handleInputChange("user_add", e.target.value)
@@ -430,97 +600,17 @@ const MembershipForm = () => {
               </div>
             </div>
 
-            {/* Divider */}
-            <div className="border-t border-gray-200 my-6"></div>
-
-            {/* Spouse Information Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Heart className="w-5 h-5 text-pink-500" />
-                <h2 className="text-xl font-semibold text-gray-800">
-                  Spouse Information
-                </h2>
-              </div>
-
+            {/* Membership Details Section */}
+            <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label
-                    htmlFor="user_spouse_name"
-                    className="text-sm font-semibold text-gray-700"
-                  >
-                    Spouse Name
-                  </Label>
-                  <Input
-                    id="user_spouse_name"
-                    value={formData.user_spouse_name}
-                    onChange={(e) =>
-                      handleInputChange("user_spouse_name", e.target.value)
-                    }
-                    className="mt-1"
-                  />
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor="user_spouse_mobile"
-                    className="text-sm font-semibold text-gray-700"
-                  >
-                    <Phone className="w-4 h-4 inline mr-1" />
-                    Spouse Mobile
-                  </Label>
-                  <Input
-                    id="user_spouse_mobile"
-                    value={formData.user_spouse_mobile}
-                    onChange={(e) =>
-                      handleInputChange("user_spouse_mobile", e.target.value)
-                    }
-                    onKeyDown={keydown}
-                    minLength={1}
-                    maxLength={10}
-                    className="mt-1"
-                  />
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor="user_spouse_dob"
-                    className="text-sm font-semibold text-gray-700"
-                  >
-                    <Calendar className="w-4 h-4 inline mr-1" />
-                    Spouse Date of Birth
-                  </Label>
-                  <Input
-                    id="user_spouse_dob"
-                    type="date"
-                    value={formData.user_spouse_dob}
-                    onChange={(e) =>
-                      handleInputChange("user_spouse_dob", e.target.value)
-                    }
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-gray-200 my-6"></div>
-
-            {/* Membership Details Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Users className="w-5 h-5 text-blue-500" />
-                <h2 className="text-xl font-semibold text-gray-800">
-                  Membership Details
-                </h2>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label
                     htmlFor="user_type"
-                    className="text-sm font-semibold text-gray-700"
+                    className="text-sm font-semibold text-gray-700 flex items-center"
                   >
-                    Membership Type *
+                    <User className="w-4 h-4 inline mr-1" />
+                    Membership Type
+                    <span className="text-red-600 ml-1"> *</span>
                   </Label>
                   <Select
                     value={formData.user_type}
@@ -532,7 +622,6 @@ const MembershipForm = () => {
                       <SelectValue placeholder="Select membership type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Trustee">Trustee</SelectItem>
                       <SelectItem value="Life Membership">
                         Life Membership
                       </SelectItem>
@@ -551,9 +640,10 @@ const MembershipForm = () => {
                 <div>
                   <Label
                     htmlFor="user_cat"
-                    className="text-sm font-semibold text-gray-700"
+                    className="text-sm font-semibold text-gray-700 flex items-center"
                   >
-                    Your Samaj *
+                    <Building className="w-4 h-4 inline mr-1" />
+                    Your Samaj <span className="text-red-600 ml-1"> *</span>
                   </Label>
                   <Select
                     value={formData.user_cat}
@@ -565,152 +655,11 @@ const MembershipForm = () => {
                       <SelectValue placeholder="Select your samaj" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Dasha Shreemali Jain Murti Pujak Samaj">
-                        Dasha Shreemali Jain Murti Pujak Samaj
-                      </SelectItem>
-                      <SelectItem value="Kankrej Pragati Samaj">
-                        Kankrej Pragati Samaj
-                      </SelectItem>
-                      <SelectItem value="Shree Bangalore Brahmkshatriya Samaj (Regd)">
-                        Shree Bangalore Brahmkshatriya Samaj (Regd){" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Ahir Samaj Bangalore">
-                        Shri Ahir Samaj Bangalore{" "}
-                      </SelectItem>
-                      <SelectItem value="halShri Bangalore Bhatia Samajhari">
-                        {" "}
-                        Shri Bangalore Bhatia Samaj
-                      </SelectItem>
-                      <SelectItem value="Shri Bangalore Ghoghari Visa Shreemali Jain Sangh">
-                        {" "}
-                        Shri Bangalore Ghoghari Visa Shreemali Jain Sangh
-                      </SelectItem>
-                      <SelectItem value="Shri Bangalore Gujarati Brahm Samaj">
-                        Shri Bangalore Gujarati Brahm Samaj{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Bangalore Kadhayata Samaj">
-                        Shri Bangalore Kadhayata Samaj{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Bangalore Kapol Samaj">
-                        Shri Bangalore Kapol Samaj{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Bangalore Lohana Samaj">
-                        {" "}
-                        Shri Bangalore Lohana Samaj
-                      </SelectItem>
-                      <SelectItem value="Shri Bangalore Patidar Samaj (Peenya)">
-                        Shri Bangalore Patidar Samaj (Peenya){" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Bangalore Sagar Samaj">
-                        Shri Bangalore Sagar Samaj{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Dasa Shrimali Jain Murthi poojak Samaj">
-                        {" "}
-                        Shri Dasa Shrimali Jain Murthi poojak Samaj
-                      </SelectItem>
-                      <SelectItem value="Shri Dasa Shrimali Vaishno Vanik Gyanti">
-                        Shri Dasa Shrimali Vaishno Vanik Gyanti{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Dasa Sorathia Vanik Gyanti">
-                        {" "}
-                        Shri Dasa Sorathia Vanik Gyanti
-                      </SelectItem>
-                      <SelectItem value="Shri Devanahalli Patidar Samaj">
-                        {" "}
-                        Shri Devanahalli Patidar Samaj
-                      </SelectItem>
-                      <SelectItem value="Shri Gujrati Vardhaman Sthanakvashi Jain Sangha">
-                        {" "}
-                        Shri Gujrati Vardhaman Sthanakvashi Jain Sangha
-                      </SelectItem>
-                      <SelectItem value="Shri Gurjar Kashtriya Kadiya Samaj">
-                        Shri Gurjar Kashtriya Kadiya Samaj{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Halari Visa Oswal Samaj">
-                        {" "}
-                        Shri Halari Visa Oswal Samaj
-                      </SelectItem>
-                      <SelectItem value="Shri Kadava Patidar Samaj (KR Puram)">
-                        Shri Kadava Patidar Samaj (KR Puram){" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Kadva Patidar Samaj (Doddabellapur)">
-                        Shri Kadva Patidar Samaj (Doddabellapur){" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Katch Kaduva Patidar Sanatan Samaj (Yelhanka)">
-                        {" "}
-                        Shri Katch Kaduva Patidar Sanatan Samaj (Yelhanka)
-                      </SelectItem>
-                      <SelectItem value="Shri Katchi Gurjar Jain Pariwar">
-                        {" "}
-                        Shri Katchi Gurjar Jain Pariwar
-                      </SelectItem>
-                      <SelectItem value="Shri Katchi Gurjar Jain Pariwar">
-                        {" "}
-                        Shri Katchi Gurjar Jain Pariwar
-                      </SelectItem>
-                      <SelectItem value="Shri Katchi Gurjar Jain Pariwar">
-                        {" "}
-                        Shri Katchi Gurjar Jain Pariwar
-                      </SelectItem>
-                      <SelectItem value="Shri Kutch Vaghad Leva Patidar Samaj">
-                        Shri Kutch Vaghad Leva Patidar Samaj{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Kutchi Dasa Oswal Jain Gnati Mahajan Bangalore">
-                        Shri Kutchi Dasa Oswal Jain Gnati Mahajan Bangalore{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Kutchi Visa Oswal Jain Samaj">
-                        Shri Kutchi Visa Oswal Jain Samaj{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Lakshminarayan Patidar Samaj (Nalmangala)">
-                        Shri Lakshminarayan Patidar Samaj (Nalmangala){" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Lalbhag Patidar Samaj">
-                        {" "}
-                        Shri Lalbhag Patidar Samaj
-                      </SelectItem>
-                      <SelectItem value="Shri Matchhukantha Jain Mandal">
-                        Shri Matchhukantha Jain Mandal{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Modh Bandhu Samaj">
-                        Shri Modh Bandhu Samaj{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Patidar Parivar Samaj">
-                        Shri Patidar Parivar Samaj{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Samast Leva Patel Samaj">
-                        Shri Samast Leva Patel Samaj{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Satwara Samaj Bangalore">
-                        Shri Satwara Samaj Bangalore{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Saurashtra Uma Parivar Bangalore">
-                        Shri Saurashtra Uma Parivar Bangalore{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Shrimali Soni Samaj">
-                        Shri Shrimali Soni Samaj{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Umiya Patidar Sanatan Samaj">
-                        {" "}
-                        Shri Umiya Patidar Sanatan Samaj
-                      </SelectItem>
-                      <SelectItem value="Shri Uttar Gujrati Patidar Samaj">
-                        Shri Uttar Gujrati Patidar Samaj{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Vansh Suthar Samaj Bangalore">
-                        Shri Vansh Suthar Samaj Bangalore{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Vansh Suthar Samaj Bangalore">
-                        Shri Vansh Suthar Samaj Bangalore{" "}
-                      </SelectItem>
-                      <SelectItem value="Shri Vishwakarma Gujarati Samaj">
-                        {" "}
-                        Shri Vishwakarma Gujarati Samaj
-                      </SelectItem>
-                      <SelectItem value="Sri Umiya Patidar Samaj (Indiranagar)">
-                        {" "}
-                        Sri Umiya Patidar Samaj (Indiranagar)
-                      </SelectItem>
-                      <SelectItem value="Others"> Others</SelectItem>
+                      {samajOptions.map((item) => (
+                        <SelectItem key={item} value={item}>
+                          {item}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   {errors.user_cat && (
@@ -719,47 +668,95 @@ const MembershipForm = () => {
                     </p>
                   )}
                 </div>
+
+                <div>
+                  <PhotoUpload
+                    label="Member Photo *"
+                    value={formData.user_image}
+                    onChange={(value) => handleInputChange("user_image", value)}
+                    hasError={!!errors.user_image}
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Divider */}
-            <div className="border-t border-gray-200 my-6"></div>
+            {formData.user_type == "Couple Membership" && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <Label
+                      htmlFor="user_spouse_name"
+                      className="text-sm font-semibold text-gray-700 flex items-center"
+                    >
+                      <User className="w-4 h-4 inline mr-1" />
+                      Spouse Name
+                    </Label>
+                    <Input
+                      id="user_spouse_name"
+                      placeholder="Enter spouse name"
+                      value={formData.user_spouse_name}
+                      onChange={(e) =>
+                        handleInputChange("user_spouse_name", e.target.value)
+                      }
+                      className="mt-1"
+                    />
+                  </div>
 
-            {/* Photo Upload Section */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Camera className="w-5 h-5 text-green-500" />
-                <h2 className="text-xl font-semibold text-gray-800">
-                  Photo Upload
-                </h2>
+                  <div>
+                    <Label
+                      htmlFor="user_spouse_mobile"
+                      className="text-sm font-semibold text-gray-700 flex items-center"
+                    >
+                      <Phone className="w-4 h-4 inline mr-1" />
+                      Spouse Mobile
+                    </Label>
+                    <Input
+                      id="user_spouse_mobile"
+                      placeholder="Enter spouse mobile no"
+                      value={formData.user_spouse_mobile}
+                      onChange={(e) =>
+                        handleInputChange("user_spouse_mobile", e.target.value)
+                      }
+                      onKeyDown={keydown}
+                      minLength={1}
+                      maxLength={10}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <DateDropdowns
+                      id="user_spouse_dob"
+                      label="Spouse Date of Birth"
+                      value={formData.user_spouse_dob}
+                      onChange={(val) =>
+                        handleInputChange("user_spouse_dob", val)
+                      }
+                      error={errors.user_spouse_dob}
+                      icon={Calendar}
+                    />
+                  </div>
+                  {formData.user_type == "Couple Membership" && (
+                    <PhotoUpload
+                      label="Spouse Photo"
+                      value={formData.spouse_image}
+                      onChange={(value) =>
+                        handleInputChange("spouse_image", value)
+                      }
+                    />
+                  )}
+                </div>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <PhotoUpload
-                  label="Member Photo *"
-                  value={formData.user_image}
-                  onChange={(value) => handleInputChange("user_image", value)}
-                  placeholder="Upload your photo for membership card"
-                  hasError={!!errors.user_image}
-                />
-
-                <PhotoUpload
-                  label="Spouse Photo (Only Couple Membership)"
-                  value={formData.spouse_image}
-                  onChange={(value) => handleInputChange("spouse_image", value)}
-                  placeholder="Upload spouse photo (optional)"
-                />
-              </div>
-            </div>
+            )}
 
             {/* Submit Button */}
-            <div className="text-center pt-6">
+            <div className="text-center pt-5">
               <Button
                 type="submit"
                 disabled={isSubmitting}
                 className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-8 py-3 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
               >
-                {isSubmitting ? "Submitting..." : "Submit Application"}
+                {isSubmitting ? "Submitting..." : "Submit"}
               </Button>
             </div>
           </form>

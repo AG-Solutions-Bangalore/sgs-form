@@ -1,4 +1,3 @@
-// PhotoUpload.tsx
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Camera, User } from 'lucide-react';
@@ -8,11 +7,15 @@ interface PhotoUploadProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  placeholder?: string;
-    hasError?: boolean; 
+  hasError?: boolean;
 }
 
-const PhotoUpload: React.FC<PhotoUploadProps> = ({ label, value, onChange, placeholder , hasError = false }) => {
+const PhotoUpload: React.FC<PhotoUploadProps> = ({
+  label,
+  value,
+  onChange,
+  hasError = false,
+}) => {
   const [isCropperOpen, setIsCropperOpen] = useState(false);
 
   const handleCropComplete = (croppedImage: string) => {
@@ -20,15 +23,21 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({ label, value, onChange, place
   };
 
   return (
-    <div className="space-y-3">
-      <label className="block text-sm font-semibold text-gray-700 mb-2">
+    <div className="space-y-1">
+      {/* Label */}
+      <label className="flex items-center text-sm font-medium text-gray-700">
+        <Camera className="w-3 h-3 mr-1" />
         {label}
       </label>
-      
-      <div className="flex flex-col sm:flex-row gap-4 items-start">
-        <div className={`w-32 h-32 border-2 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center ${
-          hasError ? 'border-red-500' : 'border-gray-200'
-        }`}>
+
+      {/* Content */}
+      <div className="flex items-center gap-2">
+        {/* Preview */}
+        <div
+          className={`w-10 h-10 border rounded-md overflow-hidden flex items-center justify-center bg-gray-50 flex-shrink-0 ${
+            hasError ? 'border-red-500' : 'border-gray-200'
+          }`}
+        >
           {value ? (
             <img
               src={value}
@@ -36,32 +45,32 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({ label, value, onChange, place
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="text-center">
-              <User className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-xs text-gray-500">No photo</p>
-            </div>
+            <User className="w-5 h-5 text-gray-400" />
           )}
         </div>
-        
-        <div className="flex-1">
+
+        {/* Actions */}
+        <div className="flex flex-col gap-0.5 flex-1">
           <Button
             type="button"
+            size="sm"
             variant="outline"
             onClick={() => setIsCropperOpen(true)}
-            className="w-full sm:w-auto"
+            className="h-10 w-full px-2 text-xs"
           >
-            <Camera className="w-4 h-4 mr-2" />
-            {value ? 'Change Photo' : 'Upload Photo'}
+            <Camera className="w-3 h-3 mr-1" />
+            {value ? 'Change' : 'Upload'}
           </Button>
-          {placeholder && (
-            <p className="text-xs text-gray-500 mt-1">{placeholder}</p>
-          )}
+
           {hasError && (
-            <p className="mt-1 text-sm text-red-600">Please upload a photo</p>
+            <p className="text-[10px] text-red-600 leading-tight">
+              Photo required
+            </p>
           )}
         </div>
       </div>
 
+      {/* Cropper */}
       <ImageCropper
         isOpen={isCropperOpen}
         onClose={() => setIsCropperOpen(false)}
