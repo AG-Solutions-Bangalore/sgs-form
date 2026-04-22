@@ -450,13 +450,13 @@ const MembershipForm = () => {
               Membership Form
             </p>
             <p className="text-sm text-gray-600">
-              Call us at
+              Call us at{" "}
               <a
                 className="font-semibold text-orange-600 underline"
                 href="tel:8867171060"
               >
                 8867171060
-              </a>
+              </a>{" "}
               if you have any questions.
             </p>
           </div>
